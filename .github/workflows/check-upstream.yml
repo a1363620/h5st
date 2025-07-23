@@ -8,13 +8,16 @@ on:
         default: master
   schedule:
     - cron: '0 * * * *' # Runs every hour
-    # Add other permissions as needed
-permissions:
-  contents: read
-  actions: write
-  # .github/workflows/check-upstream.yml
+# .github/workflows/check-upstream.yml
 
-  
+
+permissions:
+  contents: read   # or 'write' if necessary
+  actions: read
+
+# ... rest of your workflow ...
+
+ 
   
 jobs:
   check_upstream:
