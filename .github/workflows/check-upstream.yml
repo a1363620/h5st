@@ -13,9 +13,6 @@ permissions:
   issues: write
   pull-requests: write
   # .github/workflows/check-upstream.yml
-permissions:
-  contents: write
-  actions: read
   
 jobs:
   check_upstream:
