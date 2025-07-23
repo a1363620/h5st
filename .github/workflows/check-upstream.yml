@@ -44,9 +44,9 @@ jobs:
       - name: Get last known commit id
         id: get-last-commit
         run: echo "last_commit_id=$(cat last_upstream_commit.txt || echo '')" >> $GITHUB_OUTPUT
-uses: actions/checkout@v3
-  with:
-    token: ${{ secrets.GITHUB_TOKEN }}
+
+  
+  
       - name: Dispatch event if updates are found
         if: steps.get-upstream-commit.outputs.commit_id != steps.get-last-commit.outputs.last_commit_id
         uses: peter-evans/repository-dispatch@v3
