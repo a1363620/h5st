@@ -16,6 +16,8 @@ permissions:
   contents: write
   issues: write
   pull-requests: write
+  # Add others as needed, e.g.:
+
 
 jobs:
   
@@ -50,7 +52,7 @@ jobs:
         id: get-last-commit
         run: echo "last_commit_id=$(cat last_upstream_commit.txt || echo '')" >> $GITHUB_OUTPUT
 
-  
+
   
       - name: Dispatch event if updates are found
         if: steps.get-upstream-commit.outputs.commit_id != steps.get-last-commit.outputs.last_commit_id
@@ -70,9 +72,27 @@ jobs:
         with:
           path: last_upstream_commit.txt
           key: last-upstream-commit-${{ github.run_id }}
+            env:
+         GH_TOKEN: ${{ secrets Solution Steps}}
 
       - name: Delete workflow runs
         uses: Mattraks/delete-workflow-runs@v2
+        name: Check Upstream Repository
+on your workflow:**
+```yaml
+75|       - name: Delete workflow runs
+76|         uses: Mattraks/delete-workflow-runs@v2
+77|         with:
+78: [push, pull_request]
+permissions:
+  actions: write
+  contents: read
+  workflows: write
+jobs:
+  check-upstream:
+    runs-on: ubuntu-latest
+    steps:
+      # your steps here
         with:
             retain_days: 0
             keep_minimum_runs: 2
