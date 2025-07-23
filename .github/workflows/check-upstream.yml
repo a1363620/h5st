@@ -8,6 +8,15 @@ on:
         default: master
   schedule:
     - cron: '0 * * * *' # Runs every hour
+    # Add other permissions as needed
+permissions:
+  issues: write
+  pull-requests: write
+  # .github/workflows/check-upstream.yml
+permissions:
+  contents: write
+  actions: read
+  
 jobs:
   check_upstream:
     runs-on: ubuntu-latest
