@@ -20,15 +20,15 @@ permissions:
 jobs:
   check-upstream:
     runs-on: ubuntu-latest
+    permissions:
+      actions: write
+      contents: read
     steps:
-      - name: Delete Workflow Runs
+      - name: Delete old workflow runs
         env:
-          GH_TOKEN: ${{ secrets.GH_PAT }}  # Use your PAT
+          GH_TOKEN: ${{ secrets.PAT_TOKEN }} # Use your PAT secret here
         run: |
-          # Example API call using the PAT
-          curl -X DELETE \
-            -H "Authorization: token $GH_TOKEN" \
-            "https://api.github.com/repos/${{ github.repository }}/actions/runs/<run_id>"
+          # Your script to delete workflow runs
 
  
   
