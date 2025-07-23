@@ -10,9 +10,13 @@ on:
     - cron: '0 * * * *' # Runs every hour
     # Add other permissions as needed
 permissions:
-  issues: write
-  pull-requests: write
+  contents: read
+  actions: write
   # .github/workflows/check-upstream.yml
+
+  uses: actions/checkout@v3
+  with:
+    token: ${{ secrets.GITHUB_TOKEN }}
   
 jobs:
   check_upstream:
