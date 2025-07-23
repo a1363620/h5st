@@ -23,10 +23,13 @@ jobs:
       - name: Get upstream commit ID
         id: get-upstream-commit
         run: echo "commit_id=$(git rev-parse upstream)" >> $GITHUB_OUTPUT
-
       - name: Restore last upstream commit ID from cache
         id: cache-restore
         uses: actions/cache/restore@v3
+                        # Add at the top of your workflow file
+permissions:
+  contents: write
+  actions: write
         with:
           path: last_upstream_commit.txt
           key: last-upstream-commit-${{ github.run_id }} # Use run_id for per-run isolation
