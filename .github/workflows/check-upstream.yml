@@ -1,64 +1,151 @@
-name: Check Upstream Repository
+name: Checname: actions
 on:
+  repository_dispatch:
   workflow_dispatch:
     inputs:
-      upstream_branch:
-        description: 'Upstream repository branch name'
+      ssh:
+        description: 'SSH connection to Actions'
         required: false
-        default: master
-  schedule:
-    - cron: '0 * * * *' # Runs every hour
+        default: 'false'
+  # schedule:
+  #   - cron: 0 22 */3 * *
+
+env:
+  REPO_URL: https://github.com/zhx47/bakup.git
+  REPO_BRANCH: master
+  IMAGE_NAME: jd_h5st_server
+  REGISTRY: youfak
+
 jobs:
-  check_upstream:
+  docker:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-      - name: Set up git config
+      - name: 配置 Git
         run: |
-          git config --global user.name 'github-actions[bot]'
-          git config --global user.email 'github-actions[bot]@users.noreply.github.com'
-      - name: Fetch upstream
-        run: git fetch --depth 1 ${{ secrets.UPSTREAM_REPO_URL }} ${{ github.event.inputs.upstream_branch || 'master' }}:upstream
-      - name: Get upstream commit ID
-        id: get-upstream-commit
-        run: echo "commit_id=$(git rev-parse upstream)" >> $GITHUB_OUTPUT
-      - name: Restore last upstream commit ID from cache
-        id: cache-restore
-        uses: actions/cache/restore@v3
-                        # Add at the top of your workflow file
-permissions:
-  contents: write
-  actions: write
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          
+      - name: 检出当前仓库
+        uses: actions/checkout@v3
         with:
-          path: last_upstream_commit.txt
-          key: last-upstream-commit-${{ github.run_id }} # Use run_id for per-run isolation
-          restore-keys: |
-            last-upstream-commit-
+          fetch-depth: 0
+          
+      - name: 同步远程仓库更新
+        run: |
+          git remote add upstream ${{ env.REPO_URL }}
+          git fetch upstream
+          git merge upstream/${{ env.REPO_BRANCH }} --no-edit
+          git push origin ${{ github.ref }}
+          
+      - name: 设置时间戳
+        id: timestamp
+        run: echo "TIME=$(date +'%Y%m%d%H')" >> $GITHUB_ENV
+      - name: 检查服务器情况
+        run: |
+          echo "警告⚠"
+          echo "分配的服务器性能有限，若选择的插件过多，务必注意CPU性能！"
+          echo -e "已知CPU型号(降序): 7763，8370C，8272CL，8171M，E5-2673\n"
+          echo "--------------------------CPU信息--------------------------"
+          echo "CPU物理数量: $(cat /proc/cpuinfo | grep "physical id" | sort | uniq | wc -l)"
+          echo "CPU核心数量: $(nproc)"
+          echo -e "CPU型号信息:$(cat /proc/cpuinfo | grep -m1 name | awk -F: '{print $2}')\n"
+          echo "--------------------------内存信息--------------------------"
+          echo "已安装内存详细信息:"
+          echo -e "$(sudo lshw -short -C memory | grep GiB)\n"
+          echo "--------------------------硬盘信息--------------------------"
+          echo "硬盘数量: $(ls /dev/sd* | grep -v [1-9] | wc -l)" && df -hT
+      - name: 下载固件源码
+        run: |
+          git clone ${{ env.REPO_URL }} --branch ${{ env.REPO_BRANCH }} --depth 1
+          ls -l bakup
+      - name: 进入源码目录
+        run: | 
+          cd bakup
+          ls -l
+          
+      - name: 修改Dockerfile
+        run: |
+          sed -i 's|curl -L.*githubusercontent.com|curl -L https://gist.githubusercontent.com|g' bakup/Dockerfile
+          cat bakup/Dockerfile
+          
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v2
+      
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
 
-      - name: Get last known commit id
-        id: get-last-commit
-        run: echo "last_commit_id=$(cat last_upstream_commit.txt || echo '')" >> $GITHUB_OUTPUT
-
-      - name: Dispatch event if updates are found
-        if: steps.get-upstream-commit.outputs.commit_id != steps.get-last-commit.outputs.last_commit_id
-        uses: peter-evans/repository-dispatch@v3
+      - name: 登录到DockerHub
+        uses: docker/login-action@v2
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          event-type: upstream_repository_updated
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
 
-      - name: Save current upstream commit id
-        if: steps.get-upstream-commit.outputs.commit_id != steps.get-last-commit.outputs.last_commit_id
-        run: echo ${{steps.get-upstream-commit.outputs.commit_id}} > last_upstream_commit.txt
-
-      - name: Save last upstream commit ID to cache
-        id: cache-save
-        if: steps.get-upstream-commit.outputs.commit_id != steps.get-last-commit.outputs.last_commit_id
-        uses: actions/cache/save@v3
+      - name: Build and Push Docker Image
+        id: docker_build
+        uses: docker/build-push-action@v3
         with:
-          path: last_upstream_commit.txt
-          key: last-upstream-commit-${{ github.run_id }}
+          context: bakup
+          file: bakup/Dockerfile
+          platforms: linux/amd64
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ env.TIME }}
 
+      - name: 发送Telegram通知
+        if: always()
+        uses: appleboy/telegram-action@master
+        with:
+          to: ${{ secrets.TELEGRAM_CHAT_ID }}
+          token: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          message: |
+            构建结果通知
+            ⚡ 构建状态: ${{ job.status }}
+            📦 仓库: ${{ github.repository }}
+            🌿 分支: ${{ github.ref }}
+            💬 提交信息: ${{ github.event.head_commit.message }}
+            
+            🔄 工作流: ${{ github.workflow }}
+            📋 运行编号: #${{ github.run_number }}
+            
+            🐳 Docker镜像:
+            - 最新版本: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+            - 当前版本: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ env.TIME }}
+            
+            🔍 详细信息: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+
+      - name: 发送邮件通知
+        if: always()
+        uses: dawidd6/action-send-mail@v4
+        with:
+          server_address: smtp.163.com
+          server_port: 465
+          secure: true
+          username: ${{ secrets.EMAIL_USERNAME }}
+          password: ${{ secrets.EMAIL_PASSWORD }}
+          subject: 【${{ job.status }}】Docker构建通知 - ${{ github.repository }}
+          body: |
+            构建结果通知
+            
+            ⚡ 构建状态: ${{ job.status }}
+            📦 仓库: ${{ github.repository }}
+            🌿 分支: ${{ github.ref }}
+            💬 提交信息: ${{ github.event.head_commit.message }}
+            
+            🔄 工作流: ${{ github.workflow }}
+            📋 运行编号: #${{ github.run_number }}
+            
+            🐳 Docker镜像:
+            - 最新版本: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+            - 当前版本: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ env.TIME }}
+            
+            🔍 详细信息: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+            
+            ---
+            此邮件由 GitHub Actions 自动发送，请勿回复。
+          to: ${{ secrets.EMAIL_TO }}
+          from: GitHub Actions <${{ secrets.EMAIL_USERNAME }}@163.com>
+          content_type: text/plain
       - name: Delete workflow runs
         uses: Mattraks/delete-workflow-runs@v2
         with:
