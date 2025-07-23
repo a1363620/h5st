@@ -11,15 +11,25 @@ on:
 # .github/workflows/check-upstream.yml
 
 
+# .github/workflows/check-upstream.yml
 permissions:
-  contents: read   # or 'write' if necessary
-  actions: read
+  contents: write
+  issues: write
+  pull-requests: write
 
-# ... rest of your workflow ...
+jobs:
+  check-upstream:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.PAT_TOKEN }} # Use a PAT if needed
+      # ... rest of your steps
 
  
   
-jobs:
+
   check_upstream:
     runs-on: ubuntu-latest
     steps:
